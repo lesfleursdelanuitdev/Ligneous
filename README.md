@@ -1,29 +1,35 @@
 # Ligneous
 
-Ligneous is a genealogy platform. It reads GEDCOM family-tree files, stores them in Postgres, and turns them into websites that families can browse, search and add stories to. It powers [gonsalvesfamily.com](https://gonsalvesfamily.com), a live family-history site with its own admin app.
+Ligneous is a genealogy platform. It parses GEDCOM family-tree files in Go, stores them in Postgres, and serves them as family-history websites that people can browse, search and add stories to. It runs [gonsalvesfamily.com](https://gonsalvesfamily.com), a live family-history site with its own admin app.
 
-This repository is the map of the project. The code lives in the repositories listed below.
+This repository is the map of the project. The code is in the repositories below.
 
 ## How the pieces fit
 
 ```
-GEDCOM file
-   │
-   ▼
-ligneous-gedcom-lib (Go)        parse, validate, enrich, export
-   │
-   ▼
-ligneous-gedcom-lib-api (Go)    HTTP API over the library
-   │
-   ▼
-Postgres  ◄── ligneous-gedcom-flask-api (Python)   research, statistics, natural-language search
-   │
-   ▼
-Next.js sites                   the-gonsalves-family (public site)
-                                the-gonsalves-family-admin (editors)
-   ▲
-   └── @ligneous/* React packages: tree and chart views, albums, story editor
+ .ged file uploaded in the admin app
+    |
+    v
+ ligneous-gedcom-lib-api (Go, HTTP)        POST /api/v1/parse-validate-enrich
+    |  uses ligneous-gedcom-lib:            parse -> validate -> enrich
+    |
+    v
+ EnrichedDocument (JSON)                   the intermediate representation:
+    |                                       flat, deduplicated tables
+    v
+ admin app: review, merge plan, apply  --> Postgres (gedcom_* tables, Prisma)
+                                              |
+              +-------------------------------+------------------------+
+              |                                                        |
+              v                                                        v
+ public site (Next.js): people, trees,          ligneous-gedcom-flask-api (Python):
+ albums, stories, timelines                     statistics, lineages, relationship
+ drawn with @ligneous/* packages                paths, natural-language search
 ```
+
+The Go library turns a GEDCOM file into an **intermediate representation**: an `EnrichedDocument` of flat tables (people, families, parsed dates, split places, events, parent/child edges) that maps one-to-one onto the Postgres tables. The front ends never parse GEDCOM themselves. They import that JSON, and export goes back through the same API. The [library README](https://github.com/lesfleursdelanuitdev/ligneous-gedcom-lib#the-intermediate-representation-ir) has the details and real examples.
+
+**Why Go for the parser:** Go suits a line-based, typed parser that compiles to one static binary. Its HTTP server handles each request on its own goroutine, and the library is safe to use from many goroutines at once, so several uploads are parsed in parallel. A 1.1 MB GEDCOM file parses in about 38 ms.
 
 ## Repositories
 
@@ -31,33 +37,27 @@ Next.js sites                   the-gonsalves-family (public site)
 
 | Repository | Language | What it does |
 |---|---|---|
-| [ligenous-gedcom-lib](https://github.com/lesfleursdelanuitdev/ligenous-gedcom-lib) | Go | GEDCOM parser, validator, enricher, exporter and record reconciliation, with command-line tools |
-| [ligneous-gedcom-lib-api](https://github.com/lesfleursdelanuitdev/ligneous-gedcom-lib-api) | Go | HTTP API over the GEDCOM library, packaged with Docker |
-| [ligneous-gedcom-flask-api](https://github.com/lesfleursdelanuitdev/ligneous-gedcom-flask-api) | Python | Research and analytics API (Flask): saved queries, statistics, reports, and natural-language search through an LLM |
+| [ligneous-gedcom-lib](https://github.com/lesfleursdelanuitdev/ligneous-gedcom-lib) | Go | GEDCOM parser, validator (37 finding codes), enricher, exporter and merge planning, with command-line tools. 102 tests. |
+| [ligneous-gedcom-lib-api](https://github.com/lesfleursdelanuitdev/ligneous-gedcom-lib-api) | Go | HTTP API over the library: parse, validate, enrich, export and reconcile |
+| [ligneous-gedcom-flask-api](https://github.com/lesfleursdelanuitdev/ligneous-gedcom-flask-api) | Python | Research API (Flask): statistics, lineage detection, relationship paths, and natural-language search that maps questions to allowlisted SQL through an LLM |
 
 ### Front-end packages
 
 | Repository | Language | What it does |
 |---|---|---|
-| [genealogy-visualization-engine](https://github.com/lesfleursdelanuitdev/genealogy-visualization-engine) | TypeScript | Family-tree and chart rendering |
-| [ligneous-story-creator](https://github.com/lesfleursdelanuitdev/ligneous-story-creator) | TypeScript | React block-based editor and renderer for family stories |
-| [ligneous-album-view](https://github.com/lesfleursdelanuitdev/ligneous-album-view) | TypeScript | Types and helpers for photo albums generated from GEDCOM data |
-| [ligneous-album-generated-queries](https://github.com/lesfleursdelanuitdev/ligneous-album-generated-queries) | TypeScript | Prisma queries behind the generated albums |
+| [genealogy-visualization-engine](https://github.com/lesfleursdelanuitdev/genealogy-visualization-engine) | TypeScript | Headless layout engine for descendancy, pedigree and fan charts; the app draws the result as SVG |
+| [ligneous-story-creator](https://github.com/lesfleursdelanuitdev/ligneous-story-creator) | TypeScript | Block-based story editor (TipTap, Zustand) whose links point at people and events in the tree |
+| [ligneous-album-view](https://github.com/lesfleursdelanuitdev/ligneous-album-view) | TypeScript | Types and helpers for photo albums generated from the tree |
+| [ligneous-album-generated-queries](https://github.com/lesfleursdelanuitdev/ligneous-album-generated-queries) | TypeScript | Prisma queries that build those albums from people, families, events, places and tags |
 
-### Applications
+### Applications (private source)
 
-| Repository | Language | What it does |
-|---|---|---|
-| [the-gonsalves-family](https://github.com/lesfleursdelanuitdev/the-gonsalves-family) | TypeScript | The public family-history site (Next.js, Tailwind, TanStack Query, D3) |
-| [the-gonsalves-family-admin](https://github.com/lesfleursdelanuitdev/the-gonsalves-family-admin) | TypeScript | The editors' app for people, events, media and stories |
-| [ligneous-frontend](https://github.com/lesfleursdelanuitdev/ligneous-frontend) | JavaScript | The earlier Ligneous front end |
+The public site and the admin app are Next.js apps. Their source is private because it contains family data, and several shared packages (the Prisma schema, auth, date and event helpers) are private too. The public site is live at [gonsalvesfamily.com](https://gonsalvesfamily.com). Source is available on request.
 
 ## Stack
 
-Go, Python (Flask), TypeScript, React, Next.js, Prisma, Postgres, D3 and Tailwind. In production it runs as rootless Podman containers managed by systemd, behind nginx.
+Go, Python (Flask), TypeScript, React, Next.js, Prisma, Postgres, TipTap and Tailwind. In production everything runs as rootless Podman containers under systemd, behind nginx.
 
 ## Status
 
-gonsalvesfamily.com is live. The libraries are used in production by that site and are still evolving.
-
-[TODO: author line, e.g. "Built by <your name>", and how you'd like the AI-assistance credit worded here]
+gonsalvesfamily.com is live and these libraries run in production behind it. They are still evolving.

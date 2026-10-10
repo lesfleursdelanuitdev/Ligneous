@@ -31,6 +31,19 @@ The Go library turns a GEDCOM file into an **intermediate representation**: an `
 
 **Why Go for the parser:** Go suits a line-based, typed parser that compiles to one static binary. Its HTTP server handles each request on its own goroutine, and the library is safe to use from many goroutines at once, so several uploads are parsed in parallel. A 1.1 MB GEDCOM file parses in about 38 ms.
 
+## Screenshots
+
+The family site and its admin app, running on a demo database loaded with the public US-presidents sample tree (`pres2020.ged`) through the real import pipeline. No family data is shown.
+
+| | |
+|---|---|
+| ![Descendancy chart](docs/screenshots/pub-chart-descendancy.png) | ![Fan chart](docs/screenshots/pub-chart-fan.png) |
+| **Charts**: laid out by the visualization engine | **Fan chart**: five generations |
+| ![Story editor](docs/screenshots/admin-story-editor.png) | ![GEDCOM import summary](docs/screenshots/admin-import-plan.png) |
+| **Story editor**: text linked to people in the tree | **GEDCOM import**: parsed, validated and enriched by the Go library before anything is written |
+| ![Plain-language search](docs/screenshots/pub-nl-search-result.png) | <img src="docs/screenshots/pub-person-lincoln-phone.png" alt="Person page on a phone" width="250"> |
+| **Plain-language search**: questions mapped to allowlisted SQL | **On a phone** |
+
 ## Repositories
 
 ### Core
